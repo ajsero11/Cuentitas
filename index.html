@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cuentitas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── PANTALLA DE AUTENTICACIÓN ─────────────────────────── -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">₿</div>
+        <h1 class="auth-title">Cuentitas</h1>
+        <p class="auth-subtitle">Controla tu economía en bolívares y dólares</p>
+      </div>
+
+      <!-- TABS LOGIN / REGISTRO -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Iniciar sesión</button>
+        <button class="auth-tab" data-auth="register">Crear cuenta</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="auth-login" class="auth-form">
+        <div class="auth-field">
+          <label>Usuario</label>
+          <input type="text" id="login-user" placeholder="Tu nombre de usuario" autocomplete="username" />
+        </div>
+        <div class="auth-field">
+          <label>Contraseña</label>
+          <input type="password" id="login-pass" placeholder="Tu contraseña" autocomplete="current-password" />
+        </div>
+        <div class="auth-error hidden" id="login-error"></div>
+        <button class="btn-auth" id="btn-login">Entrar</button>
+      </div>
+
+      <!-- REGISTRO -->
+      <div id="auth-register" class="auth-form hidden">
+        <div class="auth-field">
+          <label>Nombre</label>
+          <input type="text" id="reg-nombre" placeholder="¿Cómo te llamamos?" />
+        </div>
+        <div class="auth-field">
+          <label>Usuario</label>
+          <input type="text" id="reg-user" placeholder="Elige un nombre de usuario" autocomplete="username" />
+        </div>
+        <div class="auth-field">
+          <label>Contraseña</label>
+          <input type="password" id="reg-pass" placeholder="Mínimo 4 caracteres" autocomplete="new-password" />
+        </div>
+        <div class="auth-field">
+          <label>Confirmar contraseña</label>
+          <input type="password" id="reg-pass2" placeholder="Repite la contraseña" autocomplete="new-password" />
+        </div>
+        <div class="auth-error hidden" id="reg-error"></div>
+        <button class="btn-auth" id="btn-register">Crear cuenta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APP PRINCIPAL ──────────────────────────────────────── -->
+  <div id="app-screen" class="hidden">
+
+    <header>
+      <div class="header-top">
+        <h1>Cuentitas</h1>
+        <div class="header-user">
+          <span id="header-username"></span>
+          <button class="btn-logout" id="btn-logout" title="Cerrar sesión">Salir</button>
+        </div>
+      </div>
+      <div class="tasas-bar">
+        <div class="tasa-card">
+          <span class="tasa-label">USDT</span>
+          <span class="tasa-valor" id="val-usdt">—</span>
+          <span class="tasa-unit">Bs</span>
+        </div>
+        <div class="tasa-sep">|</div>
+        <div class="tasa-card">
+          <span class="tasa-label">BCV</span>
+          <span class="tasa-valor" id="val-bcv">—</span>
+          <span class="tasa-unit">Bs</span>
+        </div>
+        <button class="btn-refresh" id="btn-refresh" title="Actualizar tasas">⟳</button>
+      </div>
+      <div class="tasas-meta">
+        <span id="tasas-fecha">Cargando tasas...</span>
+        <button class="btn-manual" id="btn-manual-toggle">Ingresar manual</button>
+      </div>
+      <div class="manual-form hidden" id="manual-form">
+        <input type="number" id="manual-usdt" placeholder="USDT (Bs)" step="0.01" />
+        <input type="number" id="manual-bcv" placeholder="BCV (Bs)" step="0.01" />
+        <button class="btn-save" id="btn-manual-save">Guardar</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">📊 Resumen</button>
+      <button class="tab" data-tab="transacciones">💸 Movimientos</button>
+      <button class="tab" data-tab="presupuestos">📋 Presupuestos</button>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="balance-grid">
+        <div class="balance-card ingreso">
+          <div class="bc-icon">⬆️</div>
+          <div class="bc-label">Ingresos del mes</div>
+          <div class="bc-usd" id="dash-ingresos-usd">$0.00</div>
+          <div class="bc-bs" id="dash-ingresos-bs">0.00 Bs</div>
+        </div>
+        <div class="balance-card gasto">
+          <div class="bc-icon">⬇️</div>
+          <div class="bc-label">Gastos del mes</div>
+          <div class="bc-usd" id="dash-gastos-usd">$0.00</div>
+          <div class="bc-bs" id="dash-gastos-bs">0.00 Bs</div>
+        </div>
+      </div>
+      <div class="balance-total">
+        <div class="bt-label">Balance del mes</div>
+        <div class="bt-bs" id="dash-balance-bs">0.00 Bs</div>
+        <div class="bt-row">
+          <span>÷ BCV = <strong id="dash-balance-bcv">$0.00</strong></span>
+          <span>÷ USDT = <strong id="dash-balance-usdt">$0.00</strong></span>
+        </div>
+      </div>
+      <div class="section-title">Últimos movimientos</div>
+      <div id="dash-recientes" class="lista-transacciones"></div>
+    </section>
+
+    <!-- TRANSACCIONES -->
+    <section id="tab-transacciones" class="tab-content hidden">
+      <div class="form-card">
+        <div class="form-tipo-toggle">
+          <button class="tipo-btn active" id="tipo-ingreso" data-tipo="ingreso">⬆️ Ingreso</button>
+          <button class="tipo-btn" id="tipo-gasto" data-tipo="gasto">⬇️ Gasto</button>
+        </div>
+        <input type="text" id="tx-desc" placeholder="Descripción (ej: Sueldo, Mercado...)" />
+        <div class="form-row">
+          <input type="number" id="tx-monto" placeholder="Monto en $" step="0.01" min="0" />
+          <select id="tx-cambio">
+            <option value="usdt">USDT</option>
+            <option value="bcv">BCV</option>
+          </select>
+        </div>
+        <div class="form-preview" id="tx-preview">= — Bs</div>
+        <select id="tx-categoria">
+          <option value="general">📦 General</option>
+          <option value="comida">🍽️ Comida / Mercado</option>
+          <option value="transporte">🚗 Transporte</option>
+          <option value="salud">💊 Salud</option>
+          <option value="servicios">💡 Servicios</option>
+          <option value="educacion">📚 Educación</option>
+          <option value="entretenimiento">🎮 Entretenimiento</option>
+          <option value="ropa">👕 Ropa</option>
+          <option value="trabajo">💼 Trabajo / Negocio</option>
+          <option value="otro">🔖 Otro</option>
+        </select>
+        <input type="date" id="tx-fecha" />
+        <button class="btn-agregar" id="btn-agregar-tx">Agregar movimiento</button>
+      </div>
+
+      <div class="filtros">
+        <button class="filtro-btn active" data-filtro="todos">Todos</button>
+        <button class="filtro-btn" data-filtro="ingreso">⬆️ Ingresos</button>
+        <button class="filtro-btn" data-filtro="gasto">⬇️ Gastos</button>
+      </div>
+
+      <div id="lista-transacciones" class="lista-transacciones"></div>
+
+      <div class="totales-barra">
+        <span>Total Bs: <strong id="total-bs">0.00</strong></span>
+        <span>÷BCV: <strong id="total-bcv">$0.00</strong></span>
+        <span>÷USDT: <strong id="total-usdt">$0.00</strong></span>
+      </div>
+    </section>
+
+    <!-- PRESUPUESTOS -->
+    <section id="tab-presupuestos" class="tab-content hidden">
+      <div class="form-card">
+        <input type="text" id="pres-nombre" placeholder="Nombre del presupuesto (ej: Mercado junio)" />
+        <button class="btn-agregar" id="btn-crear-pres">Crear presupuesto</button>
+      </div>
+      <div id="lista-presupuestos"></div>
+    </section>
+
+    <!-- Modal agregar ítem a presupuesto -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <span id="modal-titulo">Agregar ítem</span>
+          <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <input type="text" id="item-desc" placeholder="Descripción del ítem" />
+        <div class="form-row">
+          <input type="number" id="item-monto" placeholder="Monto en $" step="0.01" min="0" />
+          <select id="item-cambio">
+            <option value="usdt">USDT</option>
+            <option value="bcv">BCV</option>
+          </select>
+        </div>
+        <div class="form-preview" id="item-preview">= — Bs</div>
+        <button class="btn-agregar" id="btn-agregar-item">Agregar ítem</button>
+      </div>
+    </div>
+
+  </div><!-- fin #app-screen -->
+
+  <script src="app.js"></script>
+</body>
+</html>
