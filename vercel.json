@@ -1,5 +1,1 @@
-{
-  "functions": {
-    "api/tasas.js": { "runtime": "node@20.x" }
-  }
-}
+{}
