@@ -120,7 +120,17 @@ function cargarDatos() {
   const t = load('tasas', null);
   if (t) tasas = t;
   transacciones = load('transacciones', []);
-  presupuestos  = load('presupuestos', []);
+  // Migración: presupuestos viejos tenían "items", los nuevos usan "gastos"
+  presupuestos = (load('presupuestos', [])).map(p => ({
+    ...p,
+    montoUSD:    p.montoUSD    ?? 0,
+    cambio:      p.cambio      ?? 'usdt',
+    tasaUsada:   p.tasaUsada   ?? 1,
+    bsTotal:     p.bsTotal     ?? 0,
+    fechaInicio: p.fechaInicio ?? p.fecha ?? hoy(),
+    fechaFin:    p.fechaFin    ?? '',
+    gastos:      p.gastos      ?? (p.items ?? []).map(i => ({ ...i }))
+  }));
 }
 function guardarTasas()         { save('tasas', tasas); }
 function guardarTransacciones() { save('transacciones', transacciones); }
