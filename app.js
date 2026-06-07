@@ -1,5 +1,5 @@
 // ── Auth ───────────────────────────────────────────────────────
-let usuarioActual = null; // { username, nombre }
+let usuarioActual = null;
 
 function keyUsuarios() { return 'cuentitas_usuarios'; }
 function keySession()  { return 'cuentitas_session'; }
@@ -10,7 +10,6 @@ function cargarUsuarios() {
 }
 function guardarUsuarios(u) { localStorage.setItem(keyUsuarios(), JSON.stringify(u)); }
 
-// Hash simple (no criptográfico — adecuado para app personal sin backend)
 async function hashPass(pass) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -23,7 +22,6 @@ function mostrarError(id, msg) {
 }
 function limpiarError(id) { document.getElementById(id).classList.add('hidden'); }
 
-// Tabs auth
 document.querySelectorAll('.auth-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
@@ -36,7 +34,6 @@ document.querySelectorAll('.auth-tab').forEach(btn => {
   });
 });
 
-// Enter en campos dispara botón
 ['login-user','login-pass'].forEach(id => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-login').click(); });
 });
@@ -44,39 +41,31 @@ document.querySelectorAll('.auth-tab').forEach(btn => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-register').click(); });
 });
 
-// LOGIN
 document.getElementById('btn-login').addEventListener('click', async () => {
   limpiarError('login-error');
   const username = document.getElementById('login-user').value.trim().toLowerCase();
   const pass     = document.getElementById('login-pass').value;
   if (!username || !pass) { mostrarError('login-error', 'Completa todos los campos.'); return; }
-
   const usuarios = cargarUsuarios();
   if (!usuarios[username]) { mostrarError('login-error', 'Usuario no encontrado.'); return; }
-
   const hash = await hashPass(pass);
   if (usuarios[username].hash !== hash) { mostrarError('login-error', 'Contraseña incorrecta.'); return; }
-
   iniciarSesion({ username, nombre: usuarios[username].nombre });
 });
 
-// REGISTRO
 document.getElementById('btn-register').addEventListener('click', async () => {
   limpiarError('reg-error');
   const nombre   = document.getElementById('reg-nombre').value.trim();
   const username = document.getElementById('reg-user').value.trim().toLowerCase();
   const pass     = document.getElementById('reg-pass').value;
   const pass2    = document.getElementById('reg-pass2').value;
-
   if (!nombre || !username || !pass || !pass2) { mostrarError('reg-error', 'Completa todos los campos.'); return; }
   if (username.length < 3) { mostrarError('reg-error', 'El usuario debe tener al menos 3 caracteres.'); return; }
   if (!/^[a-z0-9_]+$/.test(username)) { mostrarError('reg-error', 'Solo letras, números y guión bajo.'); return; }
   if (pass.length < 4) { mostrarError('reg-error', 'La contraseña debe tener al menos 4 caracteres.'); return; }
   if (pass !== pass2) { mostrarError('reg-error', 'Las contraseñas no coinciden.'); return; }
-
   const usuarios = cargarUsuarios();
   if (usuarios[username]) { mostrarError('reg-error', 'Ese nombre de usuario ya existe.'); return; }
-
   const hash = await hashPass(pass);
   usuarios[username] = { nombre, hash };
   guardarUsuarios(usuarios);
@@ -97,7 +86,7 @@ function cerrarSesion() {
   usuarioActual = null;
   tasas = { usdt: null, bcv: null, fecha: null };
   transacciones = [];
-  presupuestos = [];
+  presupuestos  = [];
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
   document.getElementById('login-user').value = '';
@@ -108,23 +97,18 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   if (confirm('¿Cerrar sesión?')) cerrarSesion();
 });
 
-// Verificar sesión guardada al cargar
 (function checkSession() {
   try {
     const saved = JSON.parse(localStorage.getItem(keySession()));
-    if (saved?.username) {
-      iniciarSesion(saved);
-      return;
-    }
+    if (saved?.username) { iniciarSesion(saved); return; }
   } catch {}
-  // Mostrar pantalla de auth por defecto (ya visible en HTML)
 })();
 
 // ── Estado global ──────────────────────────────────────────────
 let tasas = { usdt: null, bcv: null, fecha: null };
 let transacciones = [];
-let presupuestos = [];
-let filtroActivo = 'todos';
+let presupuestos  = [];
+let filtroActivo  = 'todos';
 let presupuestoModalId = null;
 let tipoTx = 'ingreso';
 
@@ -194,6 +178,7 @@ function renderTasas() {
   document.getElementById('tasas-fecha').textContent = f ? `Actualizado: ${f}` : '';
   document.getElementById('btn-refresh').style.animation = '';
   actualizarPreviewTx();
+  actualizarPreviewPres();
   actualizarPreviewItem();
   renderDashboard();
   renderTransacciones();
@@ -239,11 +224,30 @@ function initTipoToggle() {
       document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       tipoTx = btn.dataset.tipo;
+      // Mostrar/ocultar selector de presupuesto solo en gastos
+      const sel = document.getElementById('tx-presupuesto');
+      if (tipoTx === 'gasto') {
+        sel.classList.remove('hidden');
+        actualizarSelectorPresupuesto();
+      } else {
+        sel.classList.add('hidden');
+      }
     });
   });
 }
 
-// ── Preview conversión (transacción) ──────────────────────────
+function actualizarSelectorPresupuesto() {
+  const sel = document.getElementById('tx-presupuesto');
+  sel.innerHTML = '<option value="">📋 Sin presupuesto</option>';
+  presupuestos.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `📋 ${p.nombre}`;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Preview tx ─────────────────────────────────────────────────
 function actualizarPreviewTx() {
   const monto  = parseFloat(document.getElementById('tx-monto')?.value) || 0;
   const cambio = document.getElementById('tx-cambio')?.value || 'usdt';
@@ -257,25 +261,55 @@ function initPreviewTx() {
   document.getElementById('tx-cambio')?.addEventListener('change', actualizarPreviewTx);
 }
 
+// ── Preview presupuesto ────────────────────────────────────────
+function actualizarPreviewPres() {
+  const monto  = parseFloat(document.getElementById('pres-monto')?.value) || 0;
+  const cambio = document.getElementById('pres-cambio')?.value || 'usdt';
+  const bs     = calcBs(monto, cambio);
+  const el     = document.getElementById('pres-preview');
+  if (el) el.textContent = monto > 0 && bs ? `= ${fmtBs(bs)}` : '= — Bs';
+}
+
 // ── Agregar transacción ────────────────────────────────────────
 function initAgregarTx() {
   document.getElementById('btn-agregar-tx').addEventListener('click', () => {
-    const desc     = document.getElementById('tx-desc').value.trim();
-    const monto    = parseFloat(document.getElementById('tx-monto').value);
-    const cambio   = document.getElementById('tx-cambio').value;
-    const categoria= document.getElementById('tx-categoria').value;
-    const fecha    = document.getElementById('tx-fecha').value || hoy();
+    const desc      = document.getElementById('tx-desc').value.trim();
+    const monto     = parseFloat(document.getElementById('tx-monto').value);
+    const cambio    = document.getElementById('tx-cambio').value;
+    const categoria = document.getElementById('tx-categoria').value;
+    const fecha     = document.getElementById('tx-fecha').value || hoy();
+    const presId    = tipoTx === 'gasto' ? document.getElementById('tx-presupuesto').value : '';
 
     if (!desc || !monto || monto <= 0) return;
     const tasa = tasaValor(cambio);
     if (!tasa) { alert('Ingresa las tasas primero'); return; }
 
-    transacciones.unshift({ id: uid(), tipo: tipoTx, desc, montoUSD: monto, cambio, tasaUsada: tasa, bs: monto * tasa, categoria, fecha });
+    const bs = monto * tasa;
+    const pres = presId ? presupuestos.find(p => p.id === presId) : null;
+
+    const tx = {
+      id: uid(), tipo: tipoTx, desc, montoUSD: monto, cambio,
+      tasaUsada: tasa, bs, categoria, fecha,
+      presupuestoId: pres ? pres.id : '',
+      presupuestoNombre: pres ? pres.nombre : ''
+    };
+
+    transacciones.unshift(tx);
     guardarTransacciones();
+
+    // Si hay presupuesto seleccionado, agregar también al presupuesto
+    if (pres) {
+      pres.gastos.push({ id: tx.id, desc, montoUSD: monto, cambio, tasaUsada: tasa, bs, fecha });
+      guardarPresupuestos();
+    }
+
     document.getElementById('tx-desc').value  = '';
     document.getElementById('tx-monto').value = '';
     document.getElementById('tx-preview').textContent = '= — Bs';
+    document.getElementById('tx-presupuesto').value   = '';
+
     renderTransacciones();
+    renderPresupuestos();
     renderDashboard();
   });
 }
@@ -296,7 +330,6 @@ function initFiltros() {
 function renderTransacciones() {
   const lista = transacciones.filter(t => filtroActivo === 'todos' || t.tipo === filtroActivo);
   const el    = document.getElementById('lista-transacciones');
-
   if (!lista.length) {
     el.innerHTML = '<div class="empty-state"><span class="emoji">💸</span>Sin movimientos aún</div>';
     actualizarTotales([]);
@@ -312,11 +345,14 @@ function renderTransacciones() {
 function txHTML(t) {
   const emoji = t.tipo === 'ingreso' ? '⬆️' : '⬇️';
   const cat   = CATEGORIA_EMOJI[t.categoria] || '📦';
+  const presBadge = t.presupuestoNombre
+    ? `<span class="tx-pres-badge">📋 ${t.presupuestoNombre}</span>`
+    : '';
   return `
   <div class="tx-item ${t.tipo}">
     <div class="tx-icon">${cat}</div>
     <div class="tx-body">
-      <div class="tx-desc">${t.desc}</div>
+      <div class="tx-desc">${t.desc}${presBadge}</div>
       <div class="tx-meta">${t.fecha} · ${t.cambio.toUpperCase()} (${fmt(t.tasaUsada)} Bs/$)</div>
     </div>
     <div class="tx-amounts">
@@ -328,15 +364,25 @@ function txHTML(t) {
 }
 
 function eliminarTx(id) {
+  const tx = transacciones.find(t => t.id === id);
+  // Si estaba vinculada a un presupuesto, también eliminarla de ahí
+  if (tx?.presupuestoId) {
+    const p = presupuestos.find(p => p.id === tx.presupuestoId);
+    if (p) {
+      p.gastos = p.gastos.filter(g => g.id !== id);
+      guardarPresupuestos();
+    }
+  }
   transacciones = transacciones.filter(t => t.id !== id);
   guardarTransacciones();
   renderTransacciones();
+  renderPresupuestos();
   renderDashboard();
 }
 
 function actualizarTotales(lista) {
-  const gastos   = lista.filter(t => t.tipo === 'gasto');
-  const totalBs  = gastos.reduce((s, t) => s + t.bs, 0);
+  const gastos  = lista.filter(t => t.tipo === 'gasto');
+  const totalBs = gastos.reduce((s, t) => s + t.bs, 0);
   document.getElementById('total-bs').textContent   = fmtBs(totalBs);
   document.getElementById('total-bcv').textContent  = tasas.bcv  ? fmtUSD(totalBs / tasas.bcv)  : '—';
   document.getElementById('total-usdt').textContent = tasas.usdt ? fmtUSD(totalBs / tasas.usdt) : '—';
@@ -346,9 +392,8 @@ function actualizarTotales(lista) {
 function renderDashboard() {
   const mesActual = hoy().slice(0, 7);
   const delMes    = transacciones.filter(t => t.fecha.startsWith(mesActual));
-
-  const ingresos = delMes.filter(t => t.tipo === 'ingreso');
-  const gastos   = delMes.filter(t => t.tipo === 'gasto');
+  const ingresos  = delMes.filter(t => t.tipo === 'ingreso');
+  const gastos    = delMes.filter(t => t.tipo === 'gasto');
 
   const totalIngBs  = ingresos.reduce((s, t) => s + t.bs, 0);
   const totalGasBs  = gastos.reduce((s, t) => s + t.bs, 0);
@@ -371,7 +416,6 @@ function renderDashboard() {
   el.innerHTML = recientes.length
     ? recientes.map(txHTML).join('')
     : '<div class="empty-state"><span class="emoji">📊</span>Agrega movimientos para ver el resumen</div>';
-
   el.querySelectorAll('.tx-delete').forEach(btn => {
     btn.addEventListener('click', () => eliminarTx(btn.dataset.id));
   });
@@ -379,12 +423,33 @@ function renderDashboard() {
 
 // ── Presupuestos ───────────────────────────────────────────────
 function initPresupuestos() {
+  document.getElementById('pres-monto')?.addEventListener('input',  actualizarPreviewPres);
+  document.getElementById('pres-cambio')?.addEventListener('change', actualizarPreviewPres);
+
   document.getElementById('btn-crear-pres').addEventListener('click', () => {
     const nombre = document.getElementById('pres-nombre').value.trim();
-    if (!nombre) return;
-    presupuestos.unshift({ id: uid(), nombre, fecha: hoy(), items: [] });
+    const monto  = parseFloat(document.getElementById('pres-monto').value);
+    const cambio = document.getElementById('pres-cambio').value;
+    const inicio = document.getElementById('pres-inicio').value || hoy();
+    const fin    = document.getElementById('pres-fin').value || '';
+
+    if (!nombre || !monto || monto <= 0) return;
+    const tasa = tasaValor(cambio);
+    if (!tasa) { alert('Ingresa las tasas primero'); return; }
+
+    presupuestos.unshift({
+      id: uid(), nombre, montoUSD: monto, cambio,
+      tasaUsada: tasa, bsTotal: monto * tasa,
+      fechaInicio: inicio, fechaFin: fin, gastos: []
+    });
     guardarPresupuestos();
+
     document.getElementById('pres-nombre').value = '';
+    document.getElementById('pres-monto').value  = '';
+    document.getElementById('pres-preview').textContent = '= — Bs';
+    document.getElementById('pres-fin').value    = '';
+
+    actualizarSelectorPresupuesto();
     renderPresupuestos();
   });
 }
@@ -398,49 +463,71 @@ function renderPresupuestos() {
   el.innerHTML = presupuestos.map(presHTML).join('');
   el.querySelectorAll('.btn-add-item').forEach(btn => btn.addEventListener('click', () => abrirModal(btn.dataset.id)));
   el.querySelectorAll('.btn-delete-pres').forEach(btn => btn.addEventListener('click', () => eliminarPres(btn.dataset.id)));
-  el.querySelectorAll('.btn-del-item').forEach(btn => btn.addEventListener('click', () => eliminarItemPres(btn.dataset.presid, btn.dataset.itemid)));
+  el.querySelectorAll('.btn-del-gasto').forEach(btn => btn.addEventListener('click', () => eliminarGastoPres(btn.dataset.presid, btn.dataset.gastoid)));
 }
 
 function presHTML(p) {
-  const totalBs  = p.items.reduce((s, i) => s + i.bs, 0);
-  const totalUSD = p.items.reduce((s, i) => s + i.montoUSD, 0);
-  const equivBCV  = tasas.bcv  ? fmtUSD(totalBs / tasas.bcv)  : '—';
-  const equivUSDT = tasas.usdt ? fmtUSD(totalBs / tasas.usdt) : '—';
+  const totalGastadoBs  = p.gastos.reduce((s, g) => s + g.bs, 0);
+  const totalGastadoUSD = p.gastos.reduce((s, g) => s + g.montoUSD, 0);
+  const diferenciaBs    = p.bsTotal - totalGastadoBs;
+  const diferenciaUSD   = p.montoUSD - totalGastadoUSD;
+  const pct = p.bsTotal > 0 ? Math.min((totalGastadoBs / p.bsTotal) * 100, 100) : 0;
 
-  const itemsHTML = p.items.length
-    ? p.items.map(i => `
-      <div class="pres-item">
-        <span class="pres-item-desc">${i.desc}</span>
-        <span class="pres-item-cambio ${i.cambio}">${i.cambio.toUpperCase()}</span>
-        <span class="pres-item-usd">${fmtUSD(i.montoUSD)}</span>
-        <span class="pres-item-bs">${fmtBs(i.bs)}</span>
-        <button class="btn-del-item" data-presid="${p.id}" data-itemid="${i.id}">✕</button>
+  const barClass = pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
+
+  let resultadoHTML = '';
+  if (p.gastos.length === 0) {
+    resultadoHTML = `<div class="pres-resultado neutro">Sin gastos registrados aún</div>`;
+  } else if (diferenciaBs >= 0) {
+    resultadoHTML = `<div class="pres-resultado sobro">
+      💚 Te sobró ${fmtUSD(diferenciaUSD)}
+      <span class="pres-resultado-bs">(${fmtBs(diferenciaBs)})</span>
+    </div>`;
+  } else {
+    resultadoHTML = `<div class="pres-resultado pase">
+      ❤️ Te pasaste ${fmtUSD(Math.abs(diferenciaUSD))}
+      <span class="pres-resultado-bs">(${fmtBs(Math.abs(diferenciaBs))})</span>
+    </div>`;
+  }
+
+  const periodo = p.fechaFin
+    ? `${p.fechaInicio} → ${p.fechaFin}`
+    : `Desde ${p.fechaInicio}`;
+
+  const gastosHTML = p.gastos.length
+    ? p.gastos.map(g => `
+      <div class="pres-gasto-item">
+        <span class="pres-gasto-desc">${g.desc}</span>
+        <span class="pres-gasto-fecha">${g.fecha}</span>
+        <span class="pres-gasto-cambio ${g.cambio}">${g.cambio.toUpperCase()}</span>
+        <span class="pres-gasto-usd">-${fmtUSD(g.montoUSD)}</span>
+        <button class="btn-del-gasto" data-presid="${p.id}" data-gastoid="${g.id}">✕</button>
       </div>`).join('')
-    : '<div class="pres-empty">Sin ítems aún</div>';
+    : '<div class="pres-empty">Agrega gastos con el botón "+ Gasto"</div>';
 
   return `
   <div class="pres-card">
     <div class="pres-header">
       <div>
         <div class="pres-nombre">📋 ${p.nombre}</div>
-        <div class="pres-fecha">${p.fecha}</div>
+        <div class="pres-periodo">${periodo} · Presupuesto: ${fmtUSD(p.montoUSD)} ${p.cambio.toUpperCase()}</div>
       </div>
       <div class="pres-actions">
-        <button class="btn-add-item" data-id="${p.id}">+ Ítem</button>
+        <button class="btn-add-item" data-id="${p.id}">+ Gasto</button>
         <button class="btn-delete-pres" data-id="${p.id}">🗑</button>
       </div>
     </div>
-    <div class="pres-items">${itemsHTML}</div>
-    <div class="pres-footer">
-      <div class="pres-total-row">
-        <span class="pres-total-label">Total</span>
-        <span class="pres-total-bs">${fmtBs(totalBs)}</span>
+    <div class="pres-progreso">
+      <div class="pres-progreso-labels">
+        <span class="pres-progreso-gastado">Gastado: ${fmtUSD(totalGastadoUSD)} (${fmt(pct)}%)</span>
+        <span class="pres-progreso-total">Total: ${fmtUSD(p.montoUSD)}</span>
       </div>
-      <div class="pres-total-equiv">
-        <span>÷ BCV = <strong>${equivBCV}</strong></span>
-        <span>÷ USDT = <strong>${equivUSDT}</strong></span>
+      <div class="pres-bar-track">
+        <div class="pres-bar-fill ${barClass}" style="width:${pct}%"></div>
       </div>
     </div>
+    ${resultadoHTML}
+    <div class="pres-gastos">${gastosHTML}</div>
   </div>`;
 }
 
@@ -448,24 +535,31 @@ function eliminarPres(id) {
   if (!confirm('¿Eliminar este presupuesto?')) return;
   presupuestos = presupuestos.filter(p => p.id !== id);
   guardarPresupuestos();
+  actualizarSelectorPresupuesto();
   renderPresupuestos();
 }
 
-function eliminarItemPres(presId, itemId) {
+function eliminarGastoPres(presId, gastoId) {
   const p = presupuestos.find(p => p.id === presId);
   if (!p) return;
-  p.items = p.items.filter(i => i.id !== itemId);
+  p.gastos = p.gastos.filter(g => g.id !== gastoId);
+  // También eliminar la transacción vinculada si existe
+  transacciones = transacciones.filter(t => t.id !== gastoId);
   guardarPresupuestos();
+  guardarTransacciones();
   renderPresupuestos();
+  renderTransacciones();
+  renderDashboard();
 }
 
-// ── Modal ítem presupuesto ─────────────────────────────────────
+// ── Modal gasto en presupuesto ─────────────────────────────────
 function abrirModal(presId) {
   presupuestoModalId = presId;
   const p = presupuestos.find(p => p.id === presId);
-  document.getElementById('modal-titulo').textContent = `+ Ítem: ${p?.nombre}`;
+  document.getElementById('modal-titulo').textContent = `+ Gasto: ${p?.nombre}`;
   document.getElementById('item-desc').value  = '';
   document.getElementById('item-monto').value = '';
+  document.getElementById('item-fecha').value = hoy();
   document.getElementById('item-preview').textContent = '= — Bs';
   document.getElementById('modal-overlay').classList.remove('hidden');
 }
@@ -480,19 +574,38 @@ function initModal() {
   });
   document.getElementById('item-monto')?.addEventListener('input',  actualizarPreviewItem);
   document.getElementById('item-cambio')?.addEventListener('change', actualizarPreviewItem);
+
   document.getElementById('btn-agregar-item').addEventListener('click', () => {
     const desc   = document.getElementById('item-desc').value.trim();
     const monto  = parseFloat(document.getElementById('item-monto').value);
     const cambio = document.getElementById('item-cambio').value;
+    const fecha  = document.getElementById('item-fecha').value || hoy();
     if (!desc || !monto || monto <= 0) return;
     const tasa = tasaValor(cambio);
     if (!tasa) { alert('Ingresa las tasas primero'); return; }
+
     const p = presupuestos.find(p => p.id === presupuestoModalId);
     if (!p) return;
-    p.items.push({ id: uid(), desc, montoUSD: monto, cambio, tasaUsada: tasa, bs: monto * tasa });
+
+    const gastoId = uid();
+    const bs = monto * tasa;
+
+    // Agregar gasto al presupuesto
+    p.gastos.push({ id: gastoId, desc, montoUSD: monto, cambio, tasaUsada: tasa, bs, fecha });
     guardarPresupuestos();
+
+    // Crear también una transacción vinculada
+    transacciones.unshift({
+      id: gastoId, tipo: 'gasto', desc, montoUSD: monto, cambio,
+      tasaUsada: tasa, bs, categoria: 'general', fecha,
+      presupuestoId: p.id, presupuestoNombre: p.nombre
+    });
+    guardarTransacciones();
+
     document.getElementById('modal-overlay').classList.add('hidden');
     renderPresupuestos();
+    renderTransacciones();
+    renderDashboard();
   });
 }
 
@@ -504,15 +617,15 @@ function actualizarPreviewItem() {
   if (el) el.textContent = monto > 0 && bs ? `= ${fmtBs(bs)}` : '= — Bs';
 }
 
-// ── Arrancar app (post-login) ──────────────────────────────────
+// ── Arrancar app ───────────────────────────────────────────────
 function arrancarApp() {
   cargarDatos();
-  // Resetear UI de tabs al estado inicial
   document.querySelectorAll('.tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.querySelectorAll('.tab-content').forEach((s, i) => s.classList.toggle('hidden', i !== 0));
   filtroActivo = 'todos';
   tipoTx = 'ingreso';
-  document.getElementById('tx-fecha').value = hoy();
+  document.getElementById('tx-fecha').value   = hoy();
+  document.getElementById('pres-inicio').value = hoy();
 
   initTabs();
   initManualTasas();
@@ -522,6 +635,7 @@ function arrancarApp() {
   initFiltros();
   initPresupuestos();
   initModal();
+  actualizarSelectorPresupuesto();
 
   renderTasas();
   renderDashboard();

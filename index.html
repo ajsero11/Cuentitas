@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Cuentitas</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -17,7 +17,6 @@
         <p class="auth-subtitle">Controla tu economía en bolívares y dólares</p>
       </div>
 
-      <!-- TABS LOGIN / REGISTRO -->
       <div class="auth-tabs">
         <button class="auth-tab active" data-auth="login">Iniciar sesión</button>
         <button class="auth-tab" data-auth="register">Crear cuenta</button>
@@ -159,6 +158,10 @@
           <option value="trabajo">💼 Trabajo / Negocio</option>
           <option value="otro">🔖 Otro</option>
         </select>
+        <!-- Selector de presupuesto (solo visible para gastos) -->
+        <select id="tx-presupuesto" class="hidden">
+          <option value="">📋 Sin presupuesto</option>
+        </select>
         <input type="date" id="tx-fecha" />
         <button class="btn-agregar" id="btn-agregar-tx">Agregar movimiento</button>
       </div>
@@ -181,20 +184,38 @@
     <!-- PRESUPUESTOS -->
     <section id="tab-presupuestos" class="tab-content hidden">
       <div class="form-card">
-        <input type="text" id="pres-nombre" placeholder="Nombre del presupuesto (ej: Mercado junio)" />
+        <input type="text" id="pres-nombre" placeholder="Nombre (ej: Mercado, Reparación carro...)" />
+        <div class="form-row">
+          <input type="number" id="pres-monto" placeholder="Monto total en $" step="0.01" min="0" />
+          <select id="pres-cambio">
+            <option value="usdt">USDT</option>
+            <option value="bcv">BCV</option>
+          </select>
+        </div>
+        <div class="form-preview" id="pres-preview">= — Bs</div>
+        <div class="form-row">
+          <div class="form-field-label">
+            <label>Desde</label>
+            <input type="date" id="pres-inicio" />
+          </div>
+          <div class="form-field-label">
+            <label>Hasta</label>
+            <input type="date" id="pres-fin" />
+          </div>
+        </div>
         <button class="btn-agregar" id="btn-crear-pres">Crear presupuesto</button>
       </div>
       <div id="lista-presupuestos"></div>
     </section>
 
-    <!-- Modal agregar ítem a presupuesto -->
+    <!-- Modal agregar gasto a presupuesto -->
     <div class="modal-overlay hidden" id="modal-overlay">
       <div class="modal">
         <div class="modal-header">
-          <span id="modal-titulo">Agregar ítem</span>
+          <span id="modal-titulo">Agregar gasto</span>
           <button class="modal-close" id="modal-close">✕</button>
         </div>
-        <input type="text" id="item-desc" placeholder="Descripción del ítem" />
+        <input type="text" id="item-desc" placeholder="¿En qué gastaste?" />
         <div class="form-row">
           <input type="number" id="item-monto" placeholder="Monto en $" step="0.01" min="0" />
           <select id="item-cambio">
@@ -203,7 +224,8 @@
           </select>
         </div>
         <div class="form-preview" id="item-preview">= — Bs</div>
-        <button class="btn-agregar" id="btn-agregar-item">Agregar ítem</button>
+        <input type="date" id="item-fecha" />
+        <button class="btn-agregar" id="btn-agregar-item">Agregar gasto</button>
       </div>
     </div>
 

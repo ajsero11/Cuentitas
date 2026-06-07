@@ -291,7 +291,7 @@ input[type="text"], input[type="number"], input[type="date"], select {
   border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.65rem 0.85rem;
-  font-size: 0.9rem;
+  font-size: 16px; /* mínimo 16px para evitar zoom automático en iOS */
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   -webkit-appearance: none;
@@ -424,6 +424,22 @@ select option { background: var(--bg2); }
 }
 .totales-barra strong { color: var(--text); font-weight: 700; }
 
+/* FORM FIELD CON LABEL (fechas presupuesto) */
+.form-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+.form-field-label label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text2);
+  padding-left: 2px;
+}
+
 /* PRESUPUESTOS */
 .pres-card {
   background: var(--bg2);
@@ -436,13 +452,13 @@ select option { background: var(--bg2); }
 .pres-header {
   padding: 0.85rem 1rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
 }
-.pres-nombre { font-weight: 700; font-size: 0.92rem; }
-.pres-fecha { font-size: 0.63rem; color: var(--text2); margin-top: 1px; }
-.pres-actions { display: flex; gap: 0.5rem; align-items: center; }
+.pres-nombre { font-weight: 700; font-size: 0.95rem; }
+.pres-periodo { font-size: 0.63rem; color: var(--text2); margin-top: 2px; }
+.pres-actions { display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; }
 .btn-add-item {
   background: var(--accent-light);
   color: var(--accent);
@@ -453,6 +469,7 @@ select option { background: var(--bg2); }
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s;
+  white-space: nowrap;
 }
 .btn-add-item:hover { background: var(--accent); color: #fff; }
 .btn-delete-pres {
@@ -466,54 +483,99 @@ select option { background: var(--bg2); }
 }
 .btn-delete-pres:hover { color: var(--gasto); }
 
-.pres-items { padding: 0.5rem 0.75rem; }
-.pres-item {
+/* BARRA DE PROGRESO */
+.pres-progreso {
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.pres-progreso-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  margin-bottom: 0.4rem;
+}
+.pres-progreso-gastado { color: var(--text2); }
+.pres-progreso-total { font-weight: 700; color: var(--text); }
+.pres-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--bg3);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.pres-bar-fill {
+  height: 100%;
+  border-radius: 20px;
+  transition: width 0.4s ease;
+  background: var(--ingreso);
+}
+.pres-bar-fill.warn  { background: #f59e0b; }
+.pres-bar-fill.over  { background: var(--gasto); }
+
+/* RESULTADO PRESUPUESTO */
+.pres-resultado {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+.pres-resultado.sobro  { background: var(--ingreso-bg); color: var(--ingreso); }
+.pres-resultado.pase   { background: var(--gasto-bg); color: var(--gasto); }
+.pres-resultado.neutro { background: var(--bg3); color: var(--text2); }
+.pres-resultado-bs { font-size: 0.68rem; font-weight: 400; opacity: 0.8; }
+
+/* GASTOS DENTRO DEL PRESUPUESTO */
+.pres-gastos { padding: 0.5rem 0.75rem; }
+.pres-gasto-item {
+  display: flex;
+  align-items: center;
   padding: 0.5rem 0.25rem;
   border-radius: 6px;
   font-size: 0.82rem;
   gap: 0.5rem;
   border-bottom: 1px solid var(--bg3);
 }
-.pres-item:last-child { border-bottom: none; }
-.pres-item-desc { flex: 1; }
-.pres-item-cambio {
-  font-size: 0.62rem;
+.pres-gasto-item:last-child { border-bottom: none; }
+.pres-gasto-desc { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pres-gasto-fecha { font-size: 0.62rem; color: var(--text2); white-space: nowrap; }
+.pres-gasto-cambio {
+  font-size: 0.6rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
-.pres-item-cambio.usdt { background: #d1fae5; color: var(--usdt); }
-.pres-item-cambio.bcv  { background: #fee2e2; color: var(--bcv); }
-.pres-item-usd { font-weight: 700; color: var(--accent); white-space: nowrap; }
-.pres-item-bs  { font-size: 0.65rem; color: var(--text2); white-space: nowrap; }
-.btn-del-item {
+.pres-gasto-cambio.usdt { background: #d1fae5; color: var(--usdt); }
+.pres-gasto-cambio.bcv  { background: #fee2e2; color: var(--bcv); }
+.pres-gasto-usd { font-weight: 700; color: var(--gasto); white-space: nowrap; flex-shrink: 0; }
+.btn-del-gasto {
   background: none;
   border: none;
   color: var(--border);
   cursor: pointer;
   font-size: 0.78rem;
   transition: color 0.2s;
+  flex-shrink: 0;
 }
-.btn-del-item:hover { color: var(--gasto); }
+.btn-del-gasto:hover { color: var(--gasto); }
 
-.pres-footer {
-  padding: 0.85rem 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg3);
-}
-.pres-total-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.pres-total-label { font-size: 0.65rem; color: var(--text2); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
-.pres-total-bs { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
-.pres-total-equiv { display: flex; gap: 1rem; margin-top: 0.25rem; font-size: 0.68rem; color: var(--text2); }
-.pres-total-equiv strong { color: var(--text); font-weight: 700; }
 .pres-empty { color: var(--text2); font-size: 0.78rem; text-align: center; padding: 1rem; }
+
+/* BADGE PRESUPUESTO EN MOVIMIENTOS */
+.tx-pres-badge {
+  display: inline-block;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
 
 /* MODAL */
 .modal-overlay {
