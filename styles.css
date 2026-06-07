@@ -577,6 +577,93 @@ select option { background: var(--bg2); }
   vertical-align: middle;
 }
 
+/* INPUT LABEL */
+.input-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text2);
+  margin-bottom: 0.3rem;
+}
+
+/* DEUDAS */
+.deuda-item {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--border);
+  transition: box-shadow 0.2s;
+}
+.deuda-item.vence-hoy   { border-left-color: var(--gasto); background: var(--gasto-bg); }
+.deuda-item.vence-pronto { border-left-color: #f59e0b; background: #fffbeb; }
+.deuda-item.pagada      { border-left-color: var(--ingreso); background: var(--ingreso-bg); opacity: 0.7; }
+
+.deuda-check {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--ingreso);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.deuda-body { flex: 1; min-width: 0; }
+.deuda-nombre { font-size: 0.9rem; font-weight: 700; }
+.deuda-nombre.pagada-text { text-decoration: line-through; color: var(--text2); }
+.deuda-meta { font-size: 0.65rem; color: var(--text2); margin-top: 2px; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+.deuda-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.deuda-badge.mensual    { background: var(--accent-light); color: var(--accent); }
+.deuda-badge.puntual    { background: #fef3c7; color: #92400e; }
+.deuda-badge.alerta     { background: #fee2e2; color: var(--gasto); animation: pulso 1.5s infinite; }
+
+@keyframes pulso {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.deuda-amounts { text-align: right; flex-shrink: 0; }
+.deuda-usd { font-size: 0.9rem; font-weight: 700; color: var(--gasto); }
+.deuda-bs  { font-size: 0.65rem; color: var(--text2); }
+
+.btn-del-deuda {
+  background: none;
+  border: none;
+  color: var(--border);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.btn-del-deuda:hover { color: var(--gasto); }
+
+.deudas-resumen {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow);
+}
+.deudas-resumen-item { text-align: center; }
+.deudas-resumen-val  { font-size: 1rem; font-weight: 800; color: var(--accent); display: block; }
+.deudas-resumen-lbl  { color: var(--text2); font-size: 0.65rem; }
+
 /* MODAL */
 .modal-overlay {
   position: fixed;

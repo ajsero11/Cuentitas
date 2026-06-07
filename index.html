@@ -100,6 +100,7 @@
       <button class="tab active" data-tab="dashboard">📊 Resumen</button>
       <button class="tab" data-tab="transacciones">💸 Movimientos</button>
       <button class="tab" data-tab="presupuestos">📋 Presupuestos</button>
+      <button class="tab" data-tab="deudas">💳 Deudas</button>
     </nav>
 
     <!-- DASHBOARD -->
@@ -206,6 +207,35 @@
         <button class="btn-agregar" id="btn-crear-pres">Crear presupuesto</button>
       </div>
       <div id="lista-presupuestos"></div>
+    </section>
+
+    <!-- DEUDAS -->
+    <section id="tab-deudas" class="tab-content hidden">
+      <div class="form-card">
+        <input type="text" id="deuda-nombre" placeholder="Nombre (ej: Internet, Renta...)" />
+        <div class="form-row">
+          <input type="number" id="deuda-monto" placeholder="Monto en $" step="0.01" min="0" />
+          <select id="deuda-cambio">
+            <option value="usdt">USDT</option>
+            <option value="bcv">BCV</option>
+          </select>
+        </div>
+        <div class="form-preview" id="deuda-preview">= — Bs</div>
+        <div class="form-tipo-toggle">
+          <button class="tipo-btn active" id="deuda-tipo-mensual" data-deuda="mensual">🔁 Mensual</button>
+          <button class="tipo-btn" id="deuda-tipo-puntual" data-deuda="puntual">📅 Puntual</button>
+        </div>
+        <div id="deuda-campo-mensual">
+          <label class="input-label">Día del mes en que vence</label>
+          <input type="number" id="deuda-dia" placeholder="Ej: 5" min="1" max="31" />
+        </div>
+        <div id="deuda-campo-puntual" class="hidden">
+          <label class="input-label">Fecha de vencimiento</label>
+          <input type="date" id="deuda-fecha" />
+        </div>
+        <button class="btn-agregar" id="btn-agregar-deuda">Agregar deuda</button>
+      </div>
+      <div id="lista-deudas"></div>
     </section>
 
     <!-- Modal agregar gasto a presupuesto -->

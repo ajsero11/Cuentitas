@@ -108,9 +108,11 @@ document.getElementById('btn-logout').addEventListener('click', () => {
 let tasas = { usdt: null, bcv: null, fecha: null };
 let transacciones = [];
 let presupuestos  = [];
+let deudas        = [];
 let filtroActivo  = 'todos';
 let presupuestoModalId = null;
-let tipoTx = 'ingreso';
+let tipoTx    = 'ingreso';
+let tipoDeuda = 'mensual';
 
 // ── Persistencia ───────────────────────────────────────────────
 const load = (key, def) => { try { return JSON.parse(localStorage.getItem(keyDatos(key))) ?? def; } catch { return def; } };
@@ -120,7 +122,6 @@ function cargarDatos() {
   const t = load('tasas', null);
   if (t) tasas = t;
   transacciones = load('transacciones', []);
-  // Migración: presupuestos viejos tenían "items", los nuevos usan "gastos"
   presupuestos = (load('presupuestos', [])).map(p => ({
     ...p,
     montoUSD:    p.montoUSD    ?? 0,
@@ -131,10 +132,20 @@ function cargarDatos() {
     fechaFin:    p.fechaFin    ?? '',
     gastos:      p.gastos      ?? (p.items ?? []).map(i => ({ ...i }))
   }));
+  deudas = load('deudas', []);
+  // Reset mensual: si el mes de ultimoPago es distinto al mes actual, desmarcar
+  const mesActual = hoy().slice(0, 7);
+  deudas.forEach(d => {
+    if (d.tipo === 'mensual' && d.pagada && d.ultimoPago?.slice(0, 7) !== mesActual) {
+      d.pagada = false;
+      d.ultimoPago = '';
+    }
+  });
 }
 function guardarTasas()         { save('tasas', tasas); }
 function guardarTransacciones() { save('transacciones', transacciones); }
 function guardarPresupuestos()  { save('presupuestos', presupuestos); }
+function guardarDeudas()        { save('deudas', deudas); }
 
 // ── Utilidades ─────────────────────────────────────────────────
 const fmt    = n => Number(n).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -627,15 +638,210 @@ function actualizarPreviewItem() {
   if (el) el.textContent = monto > 0 && bs ? `= ${fmtBs(bs)}` : '= — Bs';
 }
 
+// ── Deudas ─────────────────────────────────────────────────────
+function diasHasta(fecha) {
+  const hoyDate = new Date(); hoyDate.setHours(0,0,0,0);
+  const target  = new Date(fecha + 'T00:00:00');
+  return Math.round((target - hoyDate) / 86400000);
+}
+
+function fechaVencimientoMensual(dia) {
+  const ahora = new Date();
+  let año = ahora.getFullYear();
+  let mes = ahora.getMonth(); // 0-based
+  // Si el día ya pasó este mes, la próxima es el mes siguiente
+  if (dia < ahora.getDate()) mes++;
+  if (mes > 11) { mes = 0; año++; }
+  const d = String(dia).padStart(2, '0');
+  const m = String(mes + 1).padStart(2, '0');
+  return `${año}-${m}-${d}`;
+}
+
+function initDeudas() {
+  // Toggle tipo
+  document.querySelectorAll('[data-deuda]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-deuda]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      tipoDeuda = btn.dataset.deuda;
+      document.getElementById('deuda-campo-mensual').classList.toggle('hidden', tipoDeuda !== 'mensual');
+      document.getElementById('deuda-campo-puntual').classList.toggle('hidden', tipoDeuda !== 'puntual');
+    });
+  });
+
+  // Preview
+  document.getElementById('deuda-monto')?.addEventListener('input',  actualizarPreviewDeuda);
+  document.getElementById('deuda-cambio')?.addEventListener('change', actualizarPreviewDeuda);
+
+  // Agregar
+  document.getElementById('btn-agregar-deuda').addEventListener('click', () => {
+    const nombre = document.getElementById('deuda-nombre').value.trim();
+    const monto  = parseFloat(document.getElementById('deuda-monto').value);
+    const cambio = document.getElementById('deuda-cambio').value;
+
+    if (!nombre || !monto || monto <= 0) return;
+    const tasa = tasaValor(cambio);
+    if (!tasa) { alert('Ingresa las tasas primero'); return; }
+
+    let dia = null, fecha = '';
+    if (tipoDeuda === 'mensual') {
+      dia = parseInt(document.getElementById('deuda-dia').value);
+      if (!dia || dia < 1 || dia > 31) { alert('Ingresa un día válido (1-31)'); return; }
+    } else {
+      fecha = document.getElementById('deuda-fecha').value;
+      if (!fecha) { alert('Ingresa la fecha de vencimiento'); return; }
+    }
+
+    deudas.push({
+      id: uid(), nombre, montoUSD: monto, cambio, tasaUsada: tasa,
+      bs: monto * tasa, tipo: tipoDeuda, dia, fecha,
+      pagada: false, ultimoPago: ''
+    });
+    guardarDeudas();
+
+    document.getElementById('deuda-nombre').value = '';
+    document.getElementById('deuda-monto').value  = '';
+    document.getElementById('deuda-dia').value    = '';
+    document.getElementById('deuda-fecha').value  = '';
+    document.getElementById('deuda-preview').textContent = '= — Bs';
+
+    renderDeudas();
+    renderDashboard();
+  });
+}
+
+function actualizarPreviewDeuda() {
+  const monto  = parseFloat(document.getElementById('deuda-monto')?.value) || 0;
+  const cambio = document.getElementById('deuda-cambio')?.value || 'usdt';
+  const bs     = calcBs(monto, cambio);
+  const el     = document.getElementById('deuda-preview');
+  if (el) el.textContent = monto > 0 && bs ? `= ${fmtBs(bs)}` : '= — Bs';
+}
+
+function renderDeudas() {
+  const el = document.getElementById('lista-deudas');
+  if (!deudas.length) {
+    el.innerHTML = '<div class="empty-state"><span class="emoji">💳</span>Sin deudas registradas</div>';
+    actualizarResumenDeudas();
+    return;
+  }
+
+  // Ordenar: primero las no pagadas más urgentes, luego las pagadas
+  const ordenadas = [...deudas].sort((a, b) => {
+    if (a.pagada !== b.pagada) return a.pagada ? 1 : -1;
+    const fa = a.tipo === 'mensual' ? fechaVencimientoMensual(a.dia) : a.fecha;
+    const fb = b.tipo === 'mensual' ? fechaVencimientoMensual(b.dia) : b.fecha;
+    return fa.localeCompare(fb);
+  });
+
+  el.innerHTML = ordenadas.map(d => deudaHTML(d)).join('');
+
+  el.querySelectorAll('.deuda-check').forEach(chk => {
+    chk.addEventListener('change', () => pagarDeuda(chk.dataset.id, chk.checked));
+  });
+  el.querySelectorAll('.btn-del-deuda').forEach(btn => {
+    btn.addEventListener('click', () => eliminarDeuda(btn.dataset.id));
+  });
+
+  actualizarResumenDeudas();
+}
+
+function deudaHTML(d) {
+  const fechaVenc = d.tipo === 'mensual' ? fechaVencimientoMensual(d.dia) : d.fecha;
+  const dias      = d.pagada ? null : diasHasta(fechaVenc);
+  const tasa      = tasaValor(d.cambio) ?? d.tasaUsada;
+  const bsActual  = d.montoUSD * tasa;
+
+  let claseItem = '';
+  let badgeAlerta = '';
+  if (!d.pagada) {
+    if (dias <= 0)      { claseItem = 'vence-hoy';    badgeAlerta = `<span class="deuda-badge alerta">🔴 Vence hoy</span>`; }
+    else if (dias <= 3) { claseItem = 'vence-pronto'; badgeAlerta = `<span class="deuda-badge alerta">⚠️ ${dias}d</span>`; }
+  } else {
+    claseItem = 'pagada';
+  }
+
+  const badgeTipo = d.tipo === 'mensual'
+    ? `<span class="deuda-badge mensual">🔁 Día ${d.dia}</span>`
+    : `<span class="deuda-badge puntual">📅 ${d.fecha}</span>`;
+
+  const metaFecha = d.pagada
+    ? `Pagado el ${d.ultimoPago}`
+    : dias === null ? '' : dias <= 0 ? 'Vence hoy' : `Vence en ${dias} día${dias !== 1 ? 's' : ''}`;
+
+  return `
+  <div class="deuda-item ${claseItem}">
+    <input type="checkbox" class="deuda-check" data-id="${d.id}" ${d.pagada ? 'checked' : ''} />
+    <div class="deuda-body">
+      <div class="deuda-nombre ${d.pagada ? 'pagada-text' : ''}">${d.nombre}</div>
+      <div class="deuda-meta">${badgeTipo} ${badgeAlerta} ${metaFecha}</div>
+    </div>
+    <div class="deuda-amounts">
+      <div class="deuda-usd">${fmtUSD(d.montoUSD)}</div>
+      <div class="deuda-bs">${fmtBs(bsActual)}</div>
+    </div>
+    <button class="btn-del-deuda" data-id="${d.id}">🗑</button>
+  </div>`;
+}
+
+function pagarDeuda(id, pagado) {
+  const d = deudas.find(d => d.id === id);
+  if (!d) return;
+  d.pagada    = pagado;
+  d.ultimoPago = pagado ? hoy() : '';
+
+  if (pagado) {
+    // Crear transacción de gasto automáticamente
+    const tasa = tasaValor(d.cambio) ?? d.tasaUsada;
+    transacciones.unshift({
+      id: uid(), tipo: 'gasto', desc: `💳 ${d.nombre}`,
+      montoUSD: d.montoUSD, cambio: d.cambio, tasaUsada: tasa,
+      bs: d.montoUSD * tasa, categoria: 'servicios',
+      fecha: hoy(), presupuestoId: '', presupuestoNombre: ''
+    });
+    guardarTransacciones();
+  } else {
+    // Desmarcar: eliminar la transacción automática si existe
+    transacciones = transacciones.filter(t => t.desc !== `💳 ${d.nombre}` || t.fecha !== hoy());
+    guardarTransacciones();
+  }
+
+  guardarDeudas();
+  renderDeudas();
+  renderTransacciones();
+  renderDashboard();
+}
+
+function eliminarDeuda(id) {
+  if (!confirm('¿Eliminar esta deuda?')) return;
+  deudas = deudas.filter(d => d.id !== id);
+  guardarDeudas();
+  renderDeudas();
+  renderDashboard();
+}
+
+function actualizarResumenDeudas() {
+  // Actualizar badge en tab si hay alertas
+  const tab = document.querySelector('[data-tab="deudas"]');
+  const conAlerta = deudas.filter(d => {
+    if (d.pagada) return false;
+    const fechaVenc = d.tipo === 'mensual' ? fechaVencimientoMensual(d.dia) : d.fecha;
+    return diasHasta(fechaVenc) <= 3;
+  });
+  tab.textContent = conAlerta.length > 0 ? `💳 Deudas 🔴${conAlerta.length}` : '💳 Deudas';
+}
+
 // ── Arrancar app ───────────────────────────────────────────────
 function arrancarApp() {
   cargarDatos();
   document.querySelectorAll('.tab').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.querySelectorAll('.tab-content').forEach((s, i) => s.classList.toggle('hidden', i !== 0));
   filtroActivo = 'todos';
-  tipoTx = 'ingreso';
-  document.getElementById('tx-fecha').value   = hoy();
+  tipoTx    = 'ingreso';
+  tipoDeuda = 'mensual';
+  document.getElementById('tx-fecha').value    = hoy();
   document.getElementById('pres-inicio').value = hoy();
+  document.getElementById('deuda-fecha').value = hoy();
 
   initTabs();
   initManualTasas();
@@ -645,11 +851,13 @@ function arrancarApp() {
   initFiltros();
   initPresupuestos();
   initModal();
+  initDeudas();
   actualizarSelectorPresupuesto();
 
   renderTasas();
   renderDashboard();
   renderTransacciones();
   renderPresupuestos();
+  renderDeudas();
   fetchTasas();
 }
